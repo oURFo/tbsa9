@@ -83,7 +83,7 @@
         const Book = (props) => <Icon {...props}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></Icon>;
         const AlertTriangle = (props) => <Icon {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
         const ArrowLeft = (props) => <Icon {...props}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></Icon>;
-      const Info = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></Icon>;
+        const Info = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></Icon>;
         const Thermometer = (props) => <Icon {...props}><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></Icon>;
         const RotateCcw = (props) => <Icon {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Icon>;
         const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></Icon>;
@@ -150,7 +150,7 @@
                             {/* FRONT */}
                             <g transform="translate(0, 0)">
                                 <rect x="25" y="0" width="50" height="12" rx="4" fill="#334155" />
-                              <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>正面</text>
+                                <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>正面</text>
                                 
                                 <g transform="translate(0, 10)">
                                     <circle cx="50" cy="20" r="7" fill={getFill('head')} {...clk('head')} />
@@ -253,7 +253,8 @@
                     });
                 }
             };
-          const stats = useMemo(() => {
+
+            const stats = useMemo(() => {
                 let yellow = 0, orange = 0, red = 0;
                 parts.forEach(part => {
                     if (part.status === 1) yellow += part.percent;
@@ -327,7 +328,8 @@
                             </div>
                         </div>
                     </div>
-                  <div className="bg-white border-t border-slate-100 p-3 shrink-0 pb-6 z-20">
+
+                    <div className="bg-white border-t border-slate-100 p-3 shrink-0 pb-6 z-20">
                         <div className="flex justify-between items-end mb-1">
                             <div className="text-xs text-slate-500 font-medium">總燒傷面積 (TBSA)</div>
                             <div className="text-xl font-bold text-slate-800">{stats.total}%</div>
@@ -363,7 +365,7 @@
                             <div className="flex flex-col items-center">
                                 <div className="flex items-center gap-1 mb-0.5">
                                     <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                                    <span className="text-xs font-bold text-slate-700">{stats.total}%</span>
+                      <span className="text-xs font-bold text-slate-700">{stats.total}%</span>
                                 </div>
                                 <span className="text-[10px] text-slate-500">一級以上</span>
                             </div>
@@ -392,7 +394,8 @@
                 }
                 return [...new Set(values)].sort((a, b) => a - b);
             }, []);
-const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues.indexOf(sliderValue) : 0;
+
+            const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues.indexOf(sliderValue) : 0;
 
             const generateQuestions = () => {
                 const newQuestions = [];
@@ -412,8 +415,7 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
                         if (p.status === 2) orange += p.percent;
                         if (p.status === 3) red += p.percent;
                     });
-
-                    const possibleTypes = [];
+const possibleTypes = [];
                     const total = yellow + orange + red;
                     const secondPlus = orange + red;
                     
@@ -454,8 +456,7 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
                     isCorrect: isCorrect,
                     correctAns: currentQ.answer
                 });
-
-                if (isCorrect) {
+if (isCorrect) {
                     setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
                 } else {
                     setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
@@ -491,7 +492,7 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
                             </p>
                             <div className="space-y-3">
                                 <button onClick={startGame} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-md hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                                  <Play size={20} fill="currentColor" /> 開始測驗
+                                    <Play size={20} fill="currentColor" /> 開始測驗
                                 </button>
                                 <button onClick={() => setView('home')} className="w-full py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors">
                                     回主選單
@@ -560,8 +561,7 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
                     <div className="flex-1 relative bg-white">
                         <BodyDiagram parts={currentQ.parts} readOnly={true} />
                     </div>
-
-                    <div className="bg-white border-t border-slate-100 p-5 shrink-0 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-2xl">
+<div className="bg-white border-t border-slate-100 p-5 shrink-0 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-2xl">
                         {!feedback ? (
                             <>
                                 <h3 className="font-bold text-slate-800 mb-4 text-lg leading-tight">
@@ -582,7 +582,7 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
                                         onChange={handleSliderChange}
                                         className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
                                     />
-                                  <div className="text-center text-[10px] text-slate-400 mt-1">
+                                    <div className="text-center text-[10px] text-slate-400 mt-1">
                                         提示：數值會依照九分法規則跳動
                                     </div>
                                 </div>
@@ -732,3 +732,4 @@ const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues
     </script>
 </body>
 </html>
+
