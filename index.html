@@ -1,440 +1,734 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Book, Activity, AlertTriangle, ArrowLeft, Info, Thermometer, RotateCcw, CheckCircle, XCircle, Trophy, Home, Play } from 'lucide-react';
-
-const App = () => {
-  const [currentView, setCurrentView] = useState('home'); // home, quiz, nines, classification
-
-  const renderView = () => {
-    switch (currentView) {
-      case 'home':
-        return <HomeView setView={setCurrentView} />;
-      case 'nines':
-        return <RuleOfNinesView setView={setCurrentView} />;
-      case 'classification':
-        return <ClassificationView setView={setCurrentView} />;
-      case 'quiz':
-        return <QuizView setView={setCurrentView} />;
-      default:
-        return <HomeView setView={setCurrentView} />;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-white shadow-2xl overflow-hidden relative">
-        {renderView()}
-      </div>
-    </div>
-  );
-};
-
-// --- Shared Constants & Helpers ---
-const initialPartsData = [
-    { id: 'head', name: '頭部', percent: 9, status: 0 },
-    { id: 'torso_f', name: '軀幹(前)', percent: 18, status: 0 },
-    { id: 'back_torso', name: '軀幹(後)', percent: 18, status: 0 },
-    { id: 'arm_l', name: '左手', percent: 9, status: 0 },
-    { id: 'arm_r', name: '右手', percent: 9, status: 0 },
-    { id: 'leg_l', name: '左腿', percent: 18, status: 0 },
-    { id: 'leg_r', name: '右腿', percent: 18, status: 0 },
-    { id: 'groin', name: '會陰', percent: 1, status: 0 },
-];
-
-const getColorFill = (status) => {
-    switch (status) {
-    case 1: return '#facc15'; // yellow-400
-    case 2: return '#f97316'; // orange-500
-    case 3: return '#dc2626'; // red-600
-    default: return '#e2e8f0'; // slate-200
-  }
-}
-
-// --- Home View ---
-const HomeView = ({ setView }) => (
-  <div className="flex flex-col items-center justify-center h-full p-6 bg-gradient-to-b from-blue-50 to-white">
-    <div className="mb-10 text-center">
-      <div className="bg-red-100 p-4 rounded-full inline-block mb-4 shadow-sm">
-        <Activity size={48} className="text-red-500" />
-      </div>
-      <h1 className="text-3xl font-bold text-slate-800 tracking-tight">燒燙傷急救助手</h1>
-      <p className="text-slate-500 mt-2">專業評估與知識學習工具</p>
-    </div>
-
-    <div className="w-full space-y-4">
-      <MenuButton 
-        onClick={() => setView('quiz')} 
-        icon={<Book size={24} />} 
-        title="隨堂測驗" 
-        subtitle="挑戰您的評估能力 (10題)" 
-        color="bg-blue-500"
-        delay="0"
-      />
-      <MenuButton 
-        onClick={() => setView('nines')} 
-        icon={<Activity size={24} />} 
-        title="燒燙傷九分法" 
-        subtitle="互動式體表面積計算" 
-        color="bg-red-500"
-        delay="100"
-      />
-      <MenuButton 
-        onClick={() => setView('classification')} 
-        icon={<AlertTriangle size={24} />} 
-        title="燒燙傷分級" 
-        subtitle="深度判斷與定義" 
-        color="bg-orange-500"
-        delay="200"
-      />
-    </div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>燒燙傷急救小幫手</title>
     
-    <div className="mt-auto pb-6 text-xs text-slate-400">
-      Designed for First Aid Education
-    </div>
-  </div>
-);
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-const MenuButton = ({ onClick, icon, title, subtitle, color, delay }) => (
-  <button 
-    onClick={onClick}
-    className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 duration-200 group"
-    style={{ animation: `fadeInUp 0.5s ease-out ${delay}ms both` }}
-  >
-    <div className={`${color} text-white p-3 rounded-xl shadow-md group-hover:shadow-lg transition-shadow`}>
-      {icon}
-    </div>
-    <div className="ml-4 text-left">
-      <div className="font-bold text-lg text-slate-800">{title}</div>
-      <div className="text-sm text-slate-500">{subtitle}</div>
-    </div>
-  </button>
-);
-
-// --- Body Diagram Component (Reusable) ---
-const BodyDiagram = ({ parts, onPartClick, readOnly = false }) => {
-    const getStatus = (id) => parts.find(p => p.id === id)?.status || 0;
-    const getFill = (id) => getColorFill(getStatus(id));
-
-    // Click handler logic
-    const clk = (id) => readOnly ? {} : { 
-        onClick: () => onPartClick(id), 
-        className: "cursor-pointer transition-colors duration-200 hover:opacity-90" 
-    };
-
-    return (
-      <div className="w-full h-full flex items-center justify-center pt-2 pb-0 px-2 relative">
-        <svg viewBox="0 0 200 125" className="max-h-full w-full select-none">
-          <g stroke="white" strokeWidth="0.8">
-            <line x1="100" y1="12" x2="100" y2="120" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 2" />
-
-            {/* FRONT */}
-            <g transform="translate(0, 0)">
-                <rect x="25" y="0" width="50" height="12" rx="4" fill="#334155" />
-                <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>正面</text>
-                
-                <g transform="translate(0, 10)">
-                    <circle cx="50" cy="20" r="7" fill={getFill('head')} {...clk('head')} />
-                    <path d="M42 29 L58 29 L58 61 L42 61 Z" fill={getFill('torso_f')} {...clk('torso_f')} />
-                    <path d="M42 61 L58 61 L50 72 Z" fill={getFill('groin')} {...clk('groin')} />
-                    <rect x="18" y="29" width="22" height="7" rx="2" fill={getFill('arm_r')} {...clk('arm_r')} transform="rotate(70 29 32.5)" />
-                    <rect x="60" y="29" width="22" height="7" rx="2" fill={getFill('arm_l')} {...clk('arm_l')} transform="rotate(110 71 32.5)" />
-                    <rect x="30" y="68" width="16" height="42" rx="3" fill={getFill('leg_r')} {...clk('leg_r')} />
-                    <rect x="54" y="68" width="16" height="42" rx="3" fill={getFill('leg_l')} {...clk('leg_l')} />
-                </g>
-            </g>
-
-            {/* BACK */}
-            <g transform="translate(100, 0)">
-                <rect x="25" y="0" width="50" height="12" rx="4" fill="#64748b" />
-                <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>背面</text>
-
-                <g transform="translate(0, 10)">
-                    <circle cx="50" cy="20" r="7" fill={getFill('head')} {...clk('head')} />
-                    <path d="M42 29 L58 29 L58 68 L42 68 Z" fill={getFill('back_torso')} {...clk('back_torso')} />
-                    <rect x="18" y="29" width="22" height="7" rx="2" fill={getFill('arm_l')} {...clk('arm_l')} transform="rotate(70 29 32.5)" />
-                    <rect x="60" y="29" width="22" height="7" rx="2" fill={getFill('arm_r')} {...clk('arm_r')} transform="rotate(110 71 32.5)" />
-                    <rect x="30" y="68" width="16" height="42" rx="3" fill={getFill('leg_l')} {...clk('leg_l')} />
-                    <rect x="54" y="68" width="16" height="42" rx="3" fill={getFill('leg_r')} {...clk('leg_r')} />
-                </g>
-            </g>
-          </g>
-        </svg>
-      </div>
-    );
-};
-
-// --- Quiz View ---
-const QuizView = ({ setView }) => {
-    const TOTAL_QUESTIONS = 10;
-    const [gameState, setGameState] = useState('intro'); // intro, playing, result
-    const [questions, setQuestions] = useState([]);
-    const [currentQIndex, setCurrentQIndex] = useState(0);
-    const [sliderValue, setSliderValue] = useState(0); // Stores the actual percentage
-    const [feedback, setFeedback] = useState(null); // null, { isCorrect: bool, correctAns: number }
-    const [score, setScore] = useState({ correct: 0, wrong: 0 });
-
-    // Valid values for Rule of Nines: 0, 1, 9, 10, 18, 19, ..., 99, 100
-    // Logic: 9*k and 9*k + 1
-    const validValues = useMemo(() => {
-        const values = [];
-        for (let i = 0; i <= 11; i++) {
-            const base = i * 9;
-            if (base <= 100) values.push(base);
-            if (base + 1 <= 100) values.push(base + 1);
+    <style>
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-        // Deduplicate and sort (though the loop naturally produces sorted distinct except at boundaries if any logic was different)
-        return [...new Set(values)].sort((a, b) => a - b);
-    }, []);
-
-    // Get the index in validValues for the current sliderValue
-    const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues.indexOf(sliderValue) : 0;
-
-    // Question Generator
-    const generateQuestions = () => {
-        const newQuestions = [];
-        for (let i = 0; i < TOTAL_QUESTIONS; i++) {
-            const parts = initialPartsData.map(p => ({
-                ...p,
-                status: Math.random() > 0.4 ? Math.floor(Math.random() * 3) + 1 : 0
-            }));
-
-            if (parts.every(p => p.status === 0)) {
-                parts[Math.floor(Math.random() * parts.length)].status = Math.floor(Math.random() * 3) + 1;
-            }
-
-            let yellow = 0, orange = 0, red = 0;
-            parts.forEach(p => {
-                if (p.status === 1) yellow += p.percent;
-                if (p.status === 2) orange += p.percent;
-                if (p.status === 3) red += p.percent;
-            });
-
-            const possibleTypes = [];
-            const total = yellow + orange + red;
-            const secondPlus = orange + red;
-            
-            if (total > 0) possibleTypes.push({ type: 'level1_plus', text: '請問「一級以上」燒燙傷範圍佔總體表面積多少%？', answer: total });
-            if (secondPlus > 0) possibleTypes.push({ type: 'level2_plus', text: '請問「二級以上」燒燙傷範圍佔總體表面積多少%？', answer: secondPlus });
-
-            if (possibleTypes.length === 0) {
-                 parts[0].status = 1; 
-                 possibleTypes.push({ type: 'level1_plus', text: '請問「一級以上」燒燙傷範圍佔總體表面積多少%？', answer: 9 });
-            }
-
-            const selectedQ = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
-
-            newQuestions.push({
-                id: i,
-                parts: parts,
-                text: selectedQ.text,
-                answer: selectedQ.answer
-            });
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
-        setQuestions(newQuestions);
-    };
-
-    const startGame = () => {
-        generateQuestions();
-        setScore({ correct: 0, wrong: 0 });
-        setCurrentQIndex(0);
-        setSliderValue(0);
-        setFeedback(null);
-        setGameState('playing');
-    };
-
-    const handleSubmit = () => {
-        const currentQ = questions[currentQIndex];
-        const isCorrect = sliderValue === currentQ.answer;
         
-        setFeedback({
-            isCorrect: isCorrect,
-            correctAns: currentQ.answer
-        });
-
-        if (isCorrect) {
-            setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
-        } else {
-            setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
+        /* 防止雙擊縮放與選取 */
+        body {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
         }
-    };
-
-    const nextQuestion = () => {
-        if (currentQIndex < TOTAL_QUESTIONS - 1) {
-            setCurrentQIndex(prev => prev + 1);
-            setSliderValue(0);
-            setFeedback(null);
-        } else {
-            setGameState('result');
+        
+        /* 針對 iOS Safari 的安全區域調整 */
+        @supports (padding-top: env(safe-area-inset-top)) {
+            .safe-top {
+                padding-top: env(safe-area-inset-top);
+            }
+            .safe-bottom {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
         }
-    };
 
-    const handleSliderChange = (e) => {
-        const index = parseInt(e.target.value, 10);
-        setSliderValue(validValues[index]);
-    };
+        /* 簡單的動畫定義 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 20px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+    <div id="root"></div>
 
-    // --- Intro Screen ---
-    if (gameState === 'intro') {
-        return (
-            <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-                 <div className="bg-white p-8 rounded-3xl shadow-lg max-w-xs w-full">
-                    <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                        <Book size={40} className="text-blue-600" />
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- Icons (SVG Components) ---
+        // 由於不使用 npm，我們直接定義 SVG 圖示組件
+        const Icon = ({ children, size = 24, className = "", fill = "none" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
+        const Book = (props) => <Icon {...props}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></Icon>;
+        const AlertTriangle = (props) => <Icon {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>;
+        const ArrowLeft = (props) => <Icon {...props}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></Icon>;
+      const Info = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></Icon>;
+        const Thermometer = (props) => <Icon {...props}><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></Icon>;
+        const RotateCcw = (props) => <Icon {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Icon>;
+        const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></Icon>;
+        const XCircle = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></Icon>;
+        const Trophy = (props) => <Icon {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17"/><path d="M14 14.66V17"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></Icon>;
+        const Home = (props) => <Icon {...props}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></Icon>;
+        const Play = (props) => <Icon {...props} fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+
+
+        // --- Shared Constants ---
+        const initialPartsData = [
+            { id: 'head', name: '頭部', percent: 9, status: 0 },
+            { id: 'torso_f', name: '軀幹(前)', percent: 18, status: 0 },
+            { id: 'back_torso', name: '軀幹(後)', percent: 18, status: 0 },
+            { id: 'arm_l', name: '左手', percent: 9, status: 0 },
+            { id: 'arm_r', name: '右手', percent: 9, status: 0 },
+            { id: 'leg_l', name: '左腿', percent: 18, status: 0 },
+            { id: 'leg_r', name: '右腿', percent: 18, status: 0 },
+            { id: 'groin', name: '會陰', percent: 1, status: 0 },
+        ];
+
+        const getColorFill = (status) => {
+            switch (status) {
+                case 1: return '#facc15'; // yellow-400
+                case 2: return '#f97316'; // orange-500
+                case 3: return '#dc2626'; // red-600
+                default: return '#e2e8f0'; // slate-200
+            }
+        };
+
+        // --- Components ---
+
+        const MenuButton = ({ onClick, icon, title, subtitle, color, delay }) => (
+            <button 
+                onClick={onClick}
+                className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 duration-200 group"
+                style={{ animation: `fadeInUp 0.5s ease-out ${delay}ms both` }}
+            >
+                <div className={`${color} text-white p-3 rounded-xl shadow-md group-hover:shadow-lg transition-shadow`}>
+                    {icon}
+                </div>
+                <div className="ml-4 text-left">
+                    <div className="font-bold text-lg text-slate-800">{title}</div>
+                    <div className="text-sm text-slate-500">{subtitle}</div>
+                </div>
+            </button>
+        );
+
+        const BodyDiagram = ({ parts, onPartClick, readOnly = false }) => {
+            const getStatus = (id) => parts.find(p => p.id === id)?.status || 0;
+            const getFill = (id) => getColorFill(getStatus(id));
+
+            const clk = (id) => readOnly ? {} : { 
+                onClick: () => onPartClick(id), 
+                className: "cursor-pointer transition-colors duration-200 hover:opacity-90" 
+            };
+
+            return (
+                <div className="w-full h-full flex items-center justify-center pt-2 pb-0 px-2 relative">
+                    <svg viewBox="0 0 200 125" className="max-h-full w-full select-none">
+                        <g stroke="white" strokeWidth="0.8">
+                            <line x1="100" y1="12" x2="100" y2="120" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 2" />
+
+                            {/* FRONT */}
+                            <g transform="translate(0, 0)">
+                                <rect x="25" y="0" width="50" height="12" rx="4" fill="#334155" />
+                              <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>正面</text>
+                                
+                                <g transform="translate(0, 10)">
+                                    <circle cx="50" cy="20" r="7" fill={getFill('head')} {...clk('head')} />
+                                    <path d="M42 29 L58 29 L58 61 L42 61 Z" fill={getFill('torso_f')} {...clk('torso_f')} />
+                                    
+                                    {/* Groin - Visual & Hitbox */}
+                                    <path d="M42 61 L58 61 L50 72 Z" fill={getFill('groin')} pointerEvents="none" />
+                                    <circle cx="50" cy="65" r="8" fill="transparent" {...clk('groin')} />
+
+                                    <rect x="18" y="29" width="22" height="7" rx="2" fill={getFill('arm_r')} {...clk('arm_r')} transform="rotate(70 29 32.5)" />
+                                    <rect x="60" y="29" width="22" height="7" rx="2" fill={getFill('arm_l')} {...clk('arm_l')} transform="rotate(110 71 32.5)" />
+                                    <rect x="30" y="68" width="16" height="42" rx="3" fill={getFill('leg_r')} {...clk('leg_r')} />
+                                    <rect x="54" y="68" width="16" height="42" rx="3" fill={getFill('leg_l')} {...clk('leg_l')} />
+                                </g>
+                            </g>
+
+                            {/* BACK */}
+                            <g transform="translate(100, 0)">
+                                <rect x="25" y="0" width="50" height="12" rx="4" fill="#64748b" />
+                                <text x="50" y="8" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" dominantBaseline="middle" style={{fontFamily: 'sans-serif'}}>背面</text>
+
+                                <g transform="translate(0, 10)">
+                                    <circle cx="50" cy="20" r="7" fill={getFill('head')} {...clk('head')} />
+                                    <path d="M42 29 L58 29 L58 68 L42 68 Z" fill={getFill('back_torso')} {...clk('back_torso')} />
+                                    <rect x="18" y="29" width="22" height="7" rx="2" fill={getFill('arm_l')} {...clk('arm_l')} transform="rotate(70 29 32.5)" />
+                                    <rect x="60" y="29" width="22" height="7" rx="2" fill={getFill('arm_r')} {...clk('arm_r')} transform="rotate(110 71 32.5)" />
+                                    <rect x="30" y="68" width="16" height="42" rx="3" fill={getFill('leg_l')} {...clk('leg_l')} />
+                                    <rect x="54" y="68" width="16" height="42" rx="3" fill={getFill('leg_r')} {...clk('leg_r')} />
+                                </g>
+                            </g>
+                        </g>
+                    </svg>
+                </div>
+            );
+        };
+
+        const HomeView = ({ setView }) => (
+            <div className="flex flex-col items-center justify-center h-full p-6 bg-gradient-to-b from-blue-50 to-white">
+                <div className="mb-10 text-center animate-[fadeInUp_0.5s_ease-out]">
+                    <div className="bg-red-100 p-4 rounded-full inline-block mb-4 shadow-sm">
+                        <Activity size={48} className="text-red-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">燒燙傷評估測驗</h2>
-                    <p className="text-slate-500 mb-6 text-sm">
-                        共 {TOTAL_QUESTIONS} 題。<br/>
-                        觀察人體圖的燒傷顏色，拖曳滑桿回答正確的面積百分比。
-                    </p>
-                    <div className="space-y-3">
-                         <button onClick={startGame} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-md hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                            <Play size={20} fill="currentColor" /> 開始測驗
-                        </button>
-                        <button onClick={() => setView('home')} className="w-full py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors">
-                            回主選單
-                        </button>
-                    </div>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">燒燙傷急救助手</h1>
+                    <p className="text-slate-500 mt-2">專業評估與知識學習工具</p>
+                </div>
+
+                <div className="w-full space-y-4">
+                    <MenuButton 
+                        onClick={() => setView('quiz')} 
+                        icon={<Book size={24} />} 
+                        title="隨堂測驗" 
+                        subtitle="挑戰您的評估能力 (10題)" 
+                        color="bg-blue-500"
+                        delay="0"
+                    />
+                    <MenuButton 
+                        onClick={() => setView('nines')} 
+                        icon={<Activity size={24} />} 
+                        title="燒燙傷九分法" 
+                        subtitle="互動式體表面積計算" 
+                        color="bg-red-500"
+                        delay="100"
+                    />
+                    <MenuButton 
+                        onClick={() => setView('classification')} 
+                        icon={<AlertTriangle size={24} />} 
+                        title="燒燙傷分級" 
+                        subtitle="深度判斷與定義" 
+                        color="bg-orange-500"
+                        delay="200"
+                    />
+                </div>
+                
+                <div className="mt-auto pb-6 text-xs text-slate-400">
+                    Designed for First Aid Education
                 </div>
             </div>
         );
-    }
 
-    // --- Result Screen ---
-    if (gameState === 'result') {
-        const percentage = Math.round((score.correct / TOTAL_QUESTIONS) * 100);
-        let message = "";
-        if (percentage === 100) message = "太神啦！完美急救專家！";
-        else if (percentage >= 80) message = "非常優秀！觀念很正確！";
-        else if (percentage >= 60) message = "及格了，但還可以更好！";
-        else message = "加油，多練習幾次九分法！";
+        const RuleOfNinesView = ({ setView }) => {
+            const [parts, setParts] = useState(initialPartsData);
+            const [lastAction, setLastAction] = useState({ name: '請點擊部位', percent: 0, status: 0 });
 
-        return (
-             <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-                 <div className="bg-white p-8 rounded-3xl shadow-xl max-w-xs w-full animate-[fadeInUp_0.5s_ease-out]">
-                    <div className="bg-yellow-100 p-4 rounded-full inline-block mb-4">
-                        <Trophy size={48} className="text-yellow-600" />
-                    </div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-1">{percentage}%</h2>
-                    <p className="text-slate-500 font-medium mb-6">{message}</p>
-                    
-                    <div className="flex justify-center gap-8 mb-8 text-sm">
-                        <div className="flex flex-col items-center">
-                            <span className="text-green-500 font-bold text-xl">{score.correct}</span>
-                            <span className="text-slate-400">答對</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-red-500 font-bold text-xl">{score.wrong}</span>
-                            <span className="text-slate-400">答錯</span>
-                        </div>
-                    </div>
+            const toggleStatus = (id) => {
+                let clickedPart = null;
+                const newParts = parts.map(part => {
+                    if (part.id === id) {
+                        const nextStatus = (part.status + 1) % 4;
+                        clickedPart = { ...part, status: nextStatus };
+                        return clickedPart;
+                    }
+                    return part;
+                });
+                setParts(newParts);
+                if (clickedPart) {
+                    setLastAction({
+                        name: clickedPart.name,
+                        percent: clickedPart.percent,
+                        status: clickedPart.status
+                    });
+                }
+            };
+          const stats = useMemo(() => {
+                let yellow = 0, orange = 0, red = 0;
+                parts.forEach(part => {
+                    if (part.status === 1) yellow += part.percent;
+                    if (part.status === 2) orange += part.percent;
+                    if (part.status === 3) red += part.percent;
+                });
+                return { yellow, orange, red, total: yellow + orange + red };
+            }, [parts]);
+            
+            const getStatusText = (status) => {
+                switch (status) {
+                    case 0: return "無受傷";
+                    case 1: return "一級燒傷";
+                    case 2: return "二級燒傷";
+                    case 3: return "三級燒傷";
+                    default: return "";
+                }
+            };
 
-                    <div className="space-y-3">
-                         <button onClick={startGame} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
-                            <RotateCcw size={18} /> 再測驗一次
+            const getStatusColorText = (status) => {
+                switch (status) {
+                    case 0: return "text-slate-400";
+                    case 1: return "text-yellow-600";
+                    case 2: return "text-orange-600";
+                    case 3: return "text-red-600";
+                    default: return "text-slate-400";
+                }
+            };
+
+            return (
+                <div className="h-full flex flex-col bg-slate-50">
+                    <div className="bg-white px-4 py-2 shadow-sm flex items-center justify-between z-10 shrink-0 h-12">
+                        <button onClick={() => setView('home')} className="p-1 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full">
+                            <ArrowLeft size={20} />
                         </button>
-                        <button onClick={() => setView('home')} className="w-full py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
-                            <Home size={18} /> 回主畫面
+                        <h2 className="font-bold text-base">燒燙傷九分法</h2>
+                        <button onClick={() => {
+                            setParts(initialPartsData);
+                            setLastAction({ name: '請點擊部位', percent: 0, status: 0 });
+                        }} className="p-1 text-slate-400 hover:text-slate-600 rounded-full">
+                            <RotateCcw size={18} />
                         </button>
                     </div>
-                </div>
-            </div>
-        );
-    }
 
-    // --- Playing Screen ---
-    const currentQ = questions[currentQIndex];
-
-    return (
-        <div className="h-full flex flex-col bg-slate-50">
-            {/* Header */}
-            <div className="bg-white px-4 py-3 shadow-sm flex items-center justify-between shrink-0">
-                <button onClick={() => setGameState('intro')} className="text-slate-400 hover:text-slate-600">
-                    <XCircle size={24} />
-                </button>
-                <div className="font-bold text-lg text-slate-700">
-                    第 <span className="text-blue-600 text-xl">{currentQIndex + 1}</span> / {TOTAL_QUESTIONS} 題
-                </div>
-                <div className="w-6"></div> {/* Spacer */}
-            </div>
-
-            {/* Body Diagram Area */}
-            <div className="flex-1 relative bg-white">
-                <BodyDiagram parts={currentQ.parts} readOnly={true} />
-            </div>
-
-            {/* Interaction Area */}
-            <div className="bg-white border-t border-slate-100 p-5 shrink-0 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-2xl">
-                {!feedback ? (
-                    <>
-                        <h3 className="font-bold text-slate-800 mb-4 text-lg leading-tight">
-                            {currentQ.text}
-                        </h3>
+                    <div className="flex-1 min-h-0 flex flex-col relative bg-white">
+                        <div className="absolute top-2 left-0 right-0 text-center z-10 pointer-events-none">
+                            <div className="inline-block bg-white/90 backdrop-blur px-3 py-1 rounded-full border border-slate-100 shadow-sm">
+                                <span className="text-[10px] text-slate-500 flex items-center gap-2">
+                                    點擊變色: 
+                                    <span className="w-2 h-2 rounded-full bg-yellow-400"></span> 
+                                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                                    <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                                </span>
+                            </div>
+                        </div>
                         
-                        {/* Slider */}
-                        <div className="mb-6 px-2">
-                            <div className="flex justify-between text-xs text-slate-400 font-bold mb-2">
-                                <span>0%</span>
-                                <span className="text-blue-600 text-2xl animate-[pulse_0.5s_ease-in-out]">{sliderValue}%</span>
-                                <span>100%</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max={validValues.length - 1} // Step index
-                                value={currentSliderIndex} 
-                                onChange={handleSliderChange}
-                                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            />
-                            <div className="text-center text-[10px] text-slate-400 mt-1">
-                                提示：數值會依照九分法規則跳動
-                            </div>
-                        </div>
+                        <BodyDiagram parts={parts} onPartClick={toggleStatus} />
 
-                        <button 
-                            onClick={handleSubmit}
-                            className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-slate-700 active:scale-[0.98] transition-all"
-                        >
-                            回答
-                        </button>
-                    </>
-                ) : (
-                    <div className="text-center py-2 animate-[fadeIn_0.3s_ease-out]">
-                        <div className="mb-4">
-                            {feedback.isCorrect ? (
-                                <div className="flex flex-col items-center text-green-500">
-                                    <CheckCircle size={48} className="mb-2" />
-                                    <span className="font-black text-2xl">回答正確！</span>
+                        <div className="px-4 mb-1">
+                            <div className="bg-slate-100 rounded-lg p-3 flex items-center justify-between border border-slate-200 shadow-sm">
+                                <div>
+                                    <span className="text-xs text-slate-500 block">當前選取</span>
+                                    <span className="text-lg font-bold text-slate-800">{lastAction.name}</span>
                                 </div>
-                            ) : (
-                                <div className="flex flex-col items-center text-red-500">
-                                    <XCircle size={48} className="mb-2" />
-                                    <span className="font-black text-2xl">回答錯誤</span>
+                                <div className="text-right">
+                                    <span className="text-2xl font-black text-slate-700 block">{lastAction.percent > 0 ? `${lastAction.percent}%` : '--'}</span>
+                                    <span className={`text-xs font-bold ${getStatusColorText(lastAction.status)}`}>
+                                        {getStatusText(lastAction.status)}
+                                    </span>
                                 </div>
-                            )}
-                            <div className="mt-2 text-slate-600">
-                                正確答案是 <span className="font-bold text-xl">{feedback.correctAns}%</span>
                             </div>
                         </div>
-                        <button 
-                            onClick={nextQuestion}
-                            className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all text-white ${feedback.isCorrect ? 'bg-green-500 hover:bg-green-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-                        >
-                            {currentQIndex < TOTAL_QUESTIONS - 1 ? '下一題' : '查看結果'}
-                        </button>
                     </div>
-                )}
-            </div>
-        </div>
-    );
-};
+                  <div className="bg-white border-t border-slate-100 p-3 shrink-0 pb-6 z-20">
+                        <div className="flex justify-between items-end mb-1">
+                            <div className="text-xs text-slate-500 font-medium">總燒傷面積 (TBSA)</div>
+                            <div className="text-xl font-bold text-slate-800">{stats.total}%</div>
+                        </div>
 
-// --- Rule of Nines View ---
-const RuleOfNinesView = ({ setView }) => {
-  const [parts, setParts] = useState(initialPartsData);
-  const [lastAction, setLastAction] = useState({ name: '請點擊部位', percent: 0, status: 0 });
+                        <div className="w-full h-6 bg-slate-100 rounded-full flex overflow-hidden relative">
+                            <div className="h-full bg-red-600 flex items-center justify-center transition-all duration-300" style={{ width: `${stats.red}%` }}>
+                                {stats.red >= 5 && <span className="text-[10px] text-white font-bold">{stats.red}%</span>}
+                            </div>
+                            <div className="h-full bg-orange-500 flex items-center justify-center transition-all duration-300" style={{ width: `${stats.orange}%` }}>
+                                {stats.orange >= 5 && <span className="text-[10px] text-white font-bold">{stats.orange}%</span>}
+                            </div>
+                            <div className="h-full bg-yellow-400 flex items-center justify-center transition-all duration-300" style={{ width: `${stats.yellow}%` }}>
+                                {stats.yellow >= 5 && <span className="text-[10px] text-white font-bold">{stats.yellow}%</span>}
+                            </div>
+                        </div>
 
-  const toggleStatus = (id) => {
-    let clickedPart = null;
-    const newParts = parts.map(part => {
-      if (part.id === id) {
-        const nextStatus = (part.status + 1) % 4;
-        clickedPart = { ..
+                        <div className="flex justify-between mt-3 px-1">
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                                    <span className="text-xs font-bold text-slate-700">{stats.red}%</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500">三級燒傷</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                                    <span className="text-xs font-bold text-slate-700">{stats.red + stats.orange}%</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500">二級以上</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                                    <span className="text-xs font-bold text-slate-700">{stats.total}%</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500">一級以上</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const QuizView = ({ setView }) => {
+            const TOTAL_QUESTIONS = 10;
+            const [gameState, setGameState] = useState('intro');
+            const [questions, setQuestions] = useState([]);
+            const [currentQIndex, setCurrentQIndex] = useState(0);
+            const [sliderValue, setSliderValue] = useState(0);
+            const [feedback, setFeedback] = useState(null);
+            const [score, setScore] = useState({ correct: 0, wrong: 0 });
+
+            // 0, 1, 9, 10, 18, 19...
+            const validValues = useMemo(() => {
+                const values = [];
+                for (let i = 0; i <= 11; i++) {
+                    const base = i * 9;
+                    if (base <= 100) values.push(base);
+                    if (base + 1 <= 100) values.push(base + 1);
+                }
+                return [...new Set(values)].sort((a, b) => a - b);
+            }, []);
+const currentSliderIndex = validValues.indexOf(sliderValue) !== -1 ? validValues.indexOf(sliderValue) : 0;
+
+            const generateQuestions = () => {
+                const newQuestions = [];
+                for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+                    const parts = initialPartsData.map(p => ({
+                        ...p,
+                        status: Math.random() > 0.4 ? Math.floor(Math.random() * 3) + 1 : 0
+                    }));
+
+                    if (parts.every(p => p.status === 0)) {
+                        parts[Math.floor(Math.random() * parts.length)].status = Math.floor(Math.random() * 3) + 1;
+                    }
+
+                    let yellow = 0, orange = 0, red = 0;
+                    parts.forEach(p => {
+                        if (p.status === 1) yellow += p.percent;
+                        if (p.status === 2) orange += p.percent;
+                        if (p.status === 3) red += p.percent;
+                    });
+
+                    const possibleTypes = [];
+                    const total = yellow + orange + red;
+                    const secondPlus = orange + red;
+                    
+                    if (total > 0) possibleTypes.push({ type: 'level1_plus', text: '請問「一級以上」燒燙傷範圍佔總體表面積多少%？', answer: total });
+                    if (secondPlus > 0) possibleTypes.push({ type: 'level2_plus', text: '請問「二級以上」燒燙傷範圍佔總體表面積多少%？', answer: secondPlus });
+
+                    if (possibleTypes.length === 0) {
+                        parts[0].status = 1; 
+                        possibleTypes.push({ type: 'level1_plus', text: '請問「一級以上」燒燙傷範圍佔總體表面積多少%？', answer: 9 });
+                    }
+
+                    const selectedQ = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+
+                    newQuestions.push({
+                        id: i,
+                        parts: parts,
+                        text: selectedQ.text,
+                        answer: selectedQ.answer
+                    });
+                }
+                setQuestions(newQuestions);
+            };
+
+            const startGame = () => {
+                generateQuestions();
+                setScore({ correct: 0, wrong: 0 });
+                setCurrentQIndex(0);
+                setSliderValue(0);
+                setFeedback(null);
+                setGameState('playing');
+            };
+
+            const handleSubmit = () => {
+                const currentQ = questions[currentQIndex];
+                const isCorrect = sliderValue === currentQ.answer;
+                
+                setFeedback({
+                    isCorrect: isCorrect,
+                    correctAns: currentQ.answer
+                });
+
+                if (isCorrect) {
+                    setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
+                } else {
+                    setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
+                }
+            };
+
+            const nextQuestion = () => {
+                if (currentQIndex < TOTAL_QUESTIONS - 1) {
+                    setCurrentQIndex(prev => prev + 1);
+                    setSliderValue(0);
+                    setFeedback(null);
+                } else {
+                    setGameState('result');
+                }
+            };
+
+            const handleSliderChange = (e) => {
+                const index = parseInt(e.target.value, 10);
+                setSliderValue(validValues[index]);
+            };
+
+            if (gameState === 'intro') {
+                return (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+                        <div className="bg-white p-8 rounded-3xl shadow-lg max-w-xs w-full animate-[fadeInUp_0.5s_ease-out]">
+                            <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <Book size={40} className="text-blue-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">燒燙傷評估測驗</h2>
+                            <p className="text-slate-500 mb-6 text-sm">
+                                共 {TOTAL_QUESTIONS} 題。<br/>
+                                觀察人體圖的燒傷顏色，拖曳滑桿回答正確的面積百分比。
+                            </p>
+                            <div className="space-y-3">
+                                <button onClick={startGame} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-md hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                                  <Play size={20} fill="currentColor" /> 開始測驗
+                                </button>
+                                <button onClick={() => setView('home')} className="w-full py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors">
+                                    回主選單
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'result') {
+                const percentage = Math.round((score.correct / TOTAL_QUESTIONS) * 100);
+                let message = "";
+                if (percentage === 100) message = "太神啦！完美急救專家！";
+                else if (percentage >= 80) message = "非常優秀！觀念很正確！";
+                else if (percentage >= 60) message = "及格了，但還可以更好！";
+                else message = "加油，多練習幾次九分法！";
+
+                return (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+                        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-xs w-full animate-[fadeInUp_0.5s_ease-out]">
+                            <div className="bg-yellow-100 p-4 rounded-full inline-block mb-4">
+                                <Trophy size={48} className="text-yellow-600" />
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-800 mb-1">{percentage}%</h2>
+                            <p className="text-slate-500 font-medium mb-6">{message}</p>
+                            
+                            <div className="flex justify-center gap-8 mb-8 text-sm">
+                                <div className="flex flex-col items-center">
+                                    <span className="text-green-500 font-bold text-xl">{score.correct}</span>
+                                    <span className="text-slate-400">答對</span>
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <span className="text-red-500 font-bold text-xl">{score.wrong}</span>
+                                    <span className="text-slate-400">答錯</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <button onClick={startGame} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                                    <RotateCcw size={18} /> 再測驗一次
+                                </button>
+                                <button onClick={() => setView('home')} className="w-full py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                    <Home size={18} /> 回主畫面
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentQ = questions[currentQIndex];
+
+            return (
+                <div className="h-full flex flex-col bg-slate-50">
+                    <div className="bg-white px-4 py-3 shadow-sm flex items-center justify-between shrink-0">
+                        <button onClick={() => setGameState('intro')} className="text-slate-400 hover:text-slate-600">
+                            <XCircle size={24} />
+                        </button>
+                        <div className="font-bold text-lg text-slate-700">
+                            第 <span className="text-blue-600 text-xl">{currentQIndex + 1}</span> / {TOTAL_QUESTIONS} 題
+                        </div>
+                        <div className="w-6"></div>
+                    </div>
+
+                    <div className="flex-1 relative bg-white">
+                        <BodyDiagram parts={currentQ.parts} readOnly={true} />
+                    </div>
+
+                    <div className="bg-white border-t border-slate-100 p-5 shrink-0 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-2xl">
+                        {!feedback ? (
+                            <>
+                                <h3 className="font-bold text-slate-800 mb-4 text-lg leading-tight">
+                                    {currentQ.text}
+                                </h3>
+                                
+                                <div className="mb-6 px-2">
+                                    <div className="flex justify-between text-xs text-slate-400 font-bold mb-2">
+                                        <span>0%</span>
+                                        <span className="text-blue-600 text-2xl animate-[pulse_0.5s_ease-in-out]">{sliderValue}%</span>
+                                        <span>100%</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max={validValues.length - 1} 
+                                        value={currentSliderIndex} 
+                                        onChange={handleSliderChange}
+                                        className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                    />
+                                  <div className="text-center text-[10px] text-slate-400 mt-1">
+                                        提示：數值會依照九分法規則跳動
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={handleSubmit}
+                                    className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-slate-700 active:scale-[0.98] transition-all"
+                                >
+                                    回答
+                                </button>
+                            </>
+                        ) : (
+                            <div className="text-center py-2 animate-[fadeIn_0.3s_ease-out]">
+                                <div className="mb-4">
+                                    {feedback.isCorrect ? (
+                                        <div className="flex flex-col items-center text-green-500">
+                                            <CheckCircle size={48} className="mb-2" />
+                                            <span className="font-black text-2xl">回答正確！</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center text-red-500">
+                                            <XCircle size={48} className="mb-2" />
+                                            <span className="font-black text-2xl">回答錯誤</span>
+                                        </div>
+                                    )}
+                                    <div className="mt-2 text-slate-600">
+                                        正確答案是 <span className="font-bold text-xl">{feedback.correctAns}%</span>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={nextQuestion}
+                                    className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all text-white ${feedback.isCorrect ? 'bg-green-500 hover:bg-green-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                                >
+                                    {currentQIndex < TOTAL_QUESTIONS - 1 ? '下一題' : '查看結果'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const ClassificationView = ({ setView }) => {
+            const levels = [
+                {
+                    level: "一級燒燙傷",
+                    eng: "First-degree burn",
+                    color: "border-yellow-400",
+                    bg: "bg-yellow-50",
+                    iconColor: "text-yellow-500",
+                    layer: "表皮層 (Epidermis)",
+                    symptoms: "紅腫、疼痛、無水泡",
+                    bio: "皮膚屏障未完全破壞，基底層尚存，具有再生能力。神經末梢受刺激引起疼痛。",
+                    healing: "約 3-7 天癒合，通常無疤痕。"
+                },
+                {
+                    level: "二級燒燙傷 (淺/深)",
+                    eng: "Second-degree burn",
+                    color: "border-orange-500",
+                    bg: "bg-orange-50",
+                    iconColor: "text-orange-600",
+                    layer: "真皮層 (Dermis)",
+                    symptoms: "起水泡、劇烈疼痛、紅腫、體液滲出",
+                    bio: "傷害深及真皮層。淺二級傷及真皮乳突層，微血管擴張充血；深二級傷及真皮網狀層，血管受損。",
+                    healing: "淺二級約 14 天癒合；深二級需 21 天以上，可能留疤。"
+                },
+                {
+                    level: "三級燒燙傷",
+                    eng: "Third-degree burn",
+                    color: "border-red-600",
+                    bg: "bg-red-50",
+                    iconColor: "text-red-700",
+                    layer: "全層皮膚 (Full Thickness)",
+                    symptoms: "皮膚呈焦黑或蒼白、如皮革狀、無痛感(神經壞死)",
+                    bio: "表皮與真皮全層壞死，甚至波及皮下組織。神經末梢完全破壞，故患處無痛覺（周圍仍會痛）。無法自行癒合。",
+                    healing: "需清創、植皮手術治療，會留下疤痕。"
+                }
+            ];
+
+            const InfoCard = ({ title, content }) => (
+                <div className="bg-slate-50 rounded-lg p-2">
+                    <span className="block text-[10px] font-bold text-slate-500 mb-0.5">{title}</span>
+                    <p className="text-sm text-slate-700 leading-relaxed">{content}</p>
+                </div>
+            );
+
+            return (
+                <div className="h-full bg-white overflow-hidden flex flex-col">
+                    <div className="bg-white p-3 shadow-sm border-b z-10 flex items-center shrink-0 h-12">
+                        <button onClick={() => setView('home')} className="p-1 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full">
+                            <ArrowLeft size={20} />
+                        </button>
+                        <h2 className="font-bold text-base ml-2">燒燙傷分級定義</h2>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
+                        <div className="bg-blue-50 p-3 rounded-xl text-xs text-blue-800 flex gap-2">
+                            <Info className="flex-shrink-0" size={16}/>
+                            <p>燒傷深度取決於熱能穿透的深度。臨床上常依據「痛覺」與「外觀」做初步判斷。</p>
+                        </div>
+
+                        {levels.map((item, idx) => (
+                            <div key={idx} className={`border-l-4 ${item.color} pl-4 py-1`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-lg font-bold text-slate-800">{item.level}</h3>
+                                    <Thermometer className={item.iconColor} size={18} />
+                                </div>
+                                <p className="text-slate-400 text-[10px] font-mono mb-2">{item.eng}</p>
+                                
+                                <div className="grid grid-cols-1 gap-2">
+                                    <InfoCard title="受損深度" content={item.layer} />
+                                    <InfoCard title="臨床症狀" content={item.symptoms} />
+                                    <InfoCard title="生物學機制" content={item.bio} />
+                                    <InfoCard title="癒合預估" content={item.healing} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [currentView, setCurrentView] = useState('home');
+
+            const renderView = () => {
+                switch (currentView) {
+                    case 'home': return <HomeView setView={setCurrentView} />;
+                    case 'nines': return <RuleOfNinesView setView={setCurrentView} />;
+                    case 'classification': return <ClassificationView setView={setCurrentView} />;
+                    case 'quiz': return <QuizView setView={setCurrentView} />;
+                    default: return <HomeView setView={setCurrentView} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex justify-center">
+                    <div className="max-w-md w-full h-[100dvh] flex flex-col bg-white shadow-2xl overflow-hidden relative">
+                        {renderView()}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
